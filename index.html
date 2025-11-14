@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>השף הוירטואלי - מחולל מתכונים AI</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- הגדרת פונט Heebo גנרי ועיצוב כללי -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@100..900&display=swap');
+        body {
+            font-family: 'Heebo', sans-serif;
+            min-height: 100vh;
+            background-color: #ffffff; /* רקע לבן */
+            transition: all 0.5s ease; /* מעבר חלק למצב נגישות */
+            font-size: 1rem; /* גודל גופן בסיסי לשליטת נגישות */
+        }
+
+        /* הסרת רקע מונפש */
+        .animated-bg {
+            background: none;
+            background-color: #ffffff;
+        }
+
+        /* עיצובים כלליים */
+        .recipe-output h1 {
+            font-size: 2em;
+            font-weight: bold;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid #db2777; /* ורוד עמוק */
+            padding-bottom: 0.25rem;
+        }
+        .recipe-output h2 {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin-top: 1rem;
+            color: #4b5563;
+        }
+        .recipe-output h3 {
+            font-size: 1.25em;
+            font-weight: 600;
+            margin-top: 1rem;
+            color: #1f2937;
+        }
+        .recipe-output ul, .recipe-output ol {
+            list-style-position: outside;
+            margin-right: 1.5rem;
+            padding-right: 0.5rem;
+        }
+        .recipe-output li {
+            margin-bottom: 0.5rem;
+        }
+        .loader {
+            -webkit-animation: spin 1s linear infinite; /* שינוי ל-linear עבור סיבוב חלק */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .message-box {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 2000;
+            transition: opacity 0.3s ease-in-out;
+            opacity: 0;
+        }
+        .message-box.show {
+            opacity: 1;
+        }
+        /* אנימציה להופעת תיבת החלפת רכיבים */
+        .slide-in {
+            animation: slideIn 0.5s ease-out forwards;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* עיצוב אליפטי לכל הכפתורים ושדות הקלט */
+        .recipe-btn, #generate-btn, .action-btn, #submit-substitution-btn, #swap-recipe-btn, #close-cookie-banner, #floating-accessibility-btn {
+            border-radius: 9999px; /* צורת כפתור/אליפסה */
+            transition: all 0.3s ease;
+        }
+        #recipe-input, #substitution-input {
+            border-radius: 9999px;
+        }
+        /* הוספת אפקט ריחוף עדין לכפתורים */
+        .recipe-btn:hover, #generate-btn:hover, .action-btn:hover, #submit-substitution-btn:hover, #swap-recipe-btn:hover, #close-cookie-banner:hover, #floating-accessibility-btn:hover {
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+            transform: scale(1.02);
+        }
+
+        /* CSS עבור מצב נגישות (על ה-body כולו) */
+        .accessibility-mode {
+            filter: invert(100%) hue-rotate(180deg); /* היפוך צבעים (ניגודיות גבוהה) */
+        }
+        .accessibility-mode #message-box, 
+        .accessibility-mode .modal-overlay,
+        .accessibility-mode #cookie-banner,
+        .accessibility-mode #floating-accessibility-btn {
+            /* מונע היפוך של אלמנטים צפים */
+            filter: none; 
+        }
+        
+        /* CSS להדגשת קישורים */
+        .highlight-links a {
+            border: 2px solid #ff00ff; /* גבול ורוד/סגול בולט סביב קישורים */
+            padding: 2px 4px;
+            background-color: #ff00ff20;
+            border-radius: 4px;
+        }
+
+        /* CSS עבור מודל העוגיות והמידע */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000; /* גבוה יותר מהבאנר והודעות */
+        }
+        .modal-content {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.3s ease-out;
+            text-align: right;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* סגנון באנר עוגיות */
+        #cookie-banner {
+            z-index: 2500; /* מעל כל התוכן אך מתחת למודלים */
+            border-top-left-radius: 1.5rem;
+            border-top-right-radius: 1.5rem;
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+            height: 5rem; /* גובה קבוע לצורך חישוב הנגישות ב-JS */
+        }
+        
+        /* סגנון כפתור נגישות צף - שימוש ב-JS לשליטה ב-bottom */
+        #floating-accessibility-btn {
+            transition: bottom 0.3s ease-out, transform 0.3s ease; /* הוספת מעבר לשינוי מיקום חלק */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <!-- תיבת הודעות (במקום alert) -->
+    <div id="message-box" class="message-box bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-xl"></div>
+
+    <!-- מודל הגדרות נגישות -->
+    <div id="accessibility-settings-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-cyan-700 mb-4">♿ הגדרות נגישות</h3>
+            <p class="text-gray-700 mb-6">התאם את הגדרות התצוגה לנוחות הקריאה המקסימלית (תואם תקן 5568):</p>
+            
+            <div class="space-y-4">
+                <!-- בקרת ניגודיות -->
+                <div class="p-3 border rounded-lg flex items-center justify-between bg-gray-50">
+                    <span class="font-semibold text-gray-800">ניגודיות גבוהה (היפוך צבעים)</span>
+                    <button id="toggle-contrast-btn" class="bg-cyan-500 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-md">
+                        הפעל ניגודיות גבוהה
+                    </button>
+                </div>
+                
+                <!-- בקרת הדגשת קישורים -->
+                <div class="p-3 border rounded-lg flex items-center justify-between bg-gray-50">
+                    <span class="font-semibold text-gray-800">הדגשת קישורים</span>
+                    <button id="toggle-link-highlight-btn" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-md">
+                        הפעל הדגשה
+                    </button>
+                </div>
+
+                <!-- בקרת גודל גופן -->
+                <div class="p-3 border rounded-lg flex items-center justify-between bg-gray-50">
+                    <span class="font-semibold text-gray-800">גודל טקסט: <span id="current-font-size">רגיל</span></span>
+                    <div class="flex gap-2">
+                        <button id="increase-text-btn" class="bg-pink-500 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-md">
+                            הגדל גופן (+)
+                        </button>
+                        <button id="decrease-text-btn" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-md">
+                            הקטן גופן (-)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6">
+                <!-- כפתור איפוס -->
+                <button id="reset-accessibility-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    איפוס הגדרות
+                </button>
+                <button id="close-accessibility-settings-btn" class="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- מודל "קרא עוד" (מה זה עוגיות) -->
+    <div id="about-cookies-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-indigo-700 mb-4">📘 מהן עוגיות (Cookies)?</h3>
+            <p class="text-gray-700 mb-4">
+                "עוגיות" הן קבצי טקסט קטנים המאוחסנים במכשיר שלך על ידי הדפדפן. 
+                הן עוזרות לאתר לזכור מידע על הביקור שלך, כגון העדפות ממשק (כמו מצב נגישות) או נתונים לשיפור ביצועים.
+            </p>
+            <p class="text-gray-700 mb-6">
+                באתר זה, העוגיות משמשות בעיקר לצורך שמירת העדפות ממשק ולשיפור ביצועי הבוט ואיכות המתכונים המופקים.
+            </p>
+            <div class="flex justify-end">
+                <button id="close-about-cookies-btn" class="bg-pink-500 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- מודל הצהרת אזהרה המקיף (מופיע בחיפוש ראשון) -->
+    <div id="disclaimer-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-red-600 mb-4">⚠️ אנא אשר את התנאים וההצהרות הבאות</h3>
+            <p class="text-gray-700 mb-6">
+                כדי להשתמש במחולל המתכונים, עליך לאשר שקראת והבנת את כל תנאי השימוש וההצהרות הרלוונטיות:
+            </p>
+            
+            <div class="space-y-3">
+                <!-- 1. תנאי שימוש -->
+                <button data-modal="terms-of-use" class="disclaimer-link-btn w-full text-right bg-blue-500/10 hover:bg-blue-500/20 text-blue-800 font-bold py-3 px-4 rounded-lg transition duration-300 shadow-sm">
+                    📜 תנאי שימוש כלליים
+                </button>
+                <!-- 2. מדיניות פרטיות -->
+                <button data-modal="privacy-policy" class="disclaimer-link-btn w-full text-right bg-blue-500/10 hover:bg-blue-500/20 text-blue-800 font-bold py-3 px-4 rounded-lg transition duration-300 shadow-sm">
+                    🔒 מדיניות פרטיות
+                </button>
+                <!-- 3. הגבלת אחריות רפואית -->
+                <button data-modal="disclaimer" class="disclaimer-link-btn w-full text-right bg-red-500/10 hover:bg-red-500/20 text-red-800 font-bold py-3 px-4 rounded-lg transition duration-300 shadow-sm">
+                    ⚕️ הגבלת אחריות רפואית ותזונתית
+                </button>
+                <!-- 4. הצהרת AI -->
+                <button data-modal="ai-assurance" class="disclaimer-link-btn w-full text-right bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-800 font-bold py-3 px-4 rounded-lg transition duration-300 shadow-sm">
+                    🤖 הצהרת שימוש בבינה מלאכותית
+                </button>
+            </div>
+
+            <div class="flex justify-center mt-8">
+                <button id="close-disclaimer-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition duration-300 shadow-lg text-lg">
+                    אני מאשר/ת את כל התנאים
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- מודל הצהרת שימוש ב-AI (נפתח מהמודל המקיף) -->
+    <div id="ai-assurance-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-indigo-600 mb-4">🤖 הצהרת שימוש בבינה מלאכותית מתקדמת</h3>
+            <p class="text-gray-700 mb-4">
+                השף הוירטואלי מופעל על ידי מודל הבינה המלאכותית <span class="font-extrabold text-pink-600">הטוב ביותר</span> של גוגל - <span class="font-extrabold text-blue-600">Gemini</span> - בשילוב עם חיפוש גוגל עדכני. 
+                אנו משתמשים בטכנולוגיה זו כדי להבטיח מתכונים איכותיים, יצירתיים ומדויקים ככל האפשר.
+            </p>
+            <p class="text-gray-700 mb-6 font-bold">
+                **חשוב:** מאחר שהמתכונים נוצרים באופן גנרטיבי, המידע המתקבל אינו מובטח כשלם או נכון ב-100%. אנא השתמשו בשיקול דעת ובחנו את המתכונים לפני ההכנה.
+            </p>
+            <div class="flex justify-end">
+                <button data-modal="ai-assurance" class="close-modal-btn bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- מודל תנאי שימוש (חדש) -->
+    <div id="terms-of-use-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-blue-600 mb-4">📜 תנאי שימוש</h3>
+            <p class="text-gray-700 mb-4">
+                השימוש באתר זה, לרבות כל תוכן, תכונה או שירות המוצעים דרכו, כפוף להסכמתך לכל התנאים המפורטים להלן.
+            </p>
+            <p class="text-gray-700 mb-6">
+                השירות ניתן "כמות שהוא" וללא אחריות מכל סוג. חל איסור על שימוש מסחרי ללא אישור מפורש מראש.
+            </p>
+            <div class="flex justify-end">
+                <button data-modal="terms-of-use" class="close-modal-btn bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- מודל מדיניות פרטיות (חדש) -->
+    <div id="privacy-policy-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-blue-600 mb-4">🔒 מדיניות פרטיות</h3>
+            <p class="text-gray-700 mb-4">
+                האתר אוסף מידע אנונימי על שימוש לצורך שיפור השירות והצגת תוכן רלוונטי.
+            </p>
+            <p class="text-gray-700 mb-6">
+                כל המידע האישי שנמסר על ידך (ככל שישנו) יישמר בסודיות ולא יועבר לצדדים שלישיים, אלא אם נדרש על פי חוק. אנו משתמשים בעוגיות לשיפור חוויית המשתמש.
+            </p>
+            <div class="flex justify-end">
+                <button data-modal="privacy-policy" class="close-modal-btn bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- מודל הגבלת אחריות רפואית ותזונתית -->
+    <div id="medical-disclaimer-modal" class="modal-overlay">
+        <div class="modal-content text-right">
+            <h3 class="text-2xl font-bold text-red-600 mb-4">⚕️ הגבלת אחריות רפואית ותזונתית</h3>
+            <p class="text-gray-700 mb-4 font-bold">
+                האתר אינו מהווה ייעוץ רפואי, תזונתי או בטיחותי.
+            </p>
+            <p class="text-gray-700 mb-4">
+                חובה על המשתמש לוודא את דיוק המרכיבים, הבטיחות התזונתית והתאמה למגבלות בריאותיות (כגון אלרגיות, רגישויות או מצבים רפואיים). 
+                בכל מקרה של ספק, יש להתייעץ עם איש מקצוע מוסמך (דיאטן קליני, רופא). 
+                השימוש באתר הוא על אחריות המשתמש בלבד.
+            </p>
+            <div class="flex justify-end">
+                <button data-modal="disclaimer" class="close-modal-btn bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full transition duration-300 shadow-lg">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- לחצן נגישות צף - בפינה השמאלית התחתונה - מיקום דינמי -->
+    <button id="floating-accessibility-btn" class="fixed left-4 bg-cyan-500 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-full shadow-2xl z-40 transition duration-300 transform hover:scale-110" style="bottom: 1rem;">
+        נגישות
+    </button>
+
+
+    <!-- הקונטיינר הראשי -->
+    <div class="max-w-6xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden transform transition duration-500 hover:shadow-pink-500/50" id="main-container">
+        
+        <!-- כותרת ראשית - סגול כהה -->
+        <header class="bg-indigo-700/90 backdrop-blur-sm p-6 text-white text-center rounded-t-3xl shadow-lg">
+            <h1 class="text-3xl font-extrabold tracking-tight">השף הוירטואלי</h1>
+            <p class="mt-1 text-lg font-light">מחולל מתכונים מונע בינה מלאכותית</p>
+        </header>
+
+        <!-- אזור השאלות המוגדרות מראש -->
+        <section class="p-6 border-b border-gray-100 bg-white/70 backdrop-blur-sm">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 text-center">בחר מתכון בלחיצה או הקלד שאלה משלך:</h2>
+            <div id="quick-buttons" class="flex flex-wrap justify-center gap-3">
+                <!-- הכפתורים יוצרו כאן באופן דינמי על ידי JS -->
+            </div>
+        </section>
+
+        <!-- אזור הקלט (בוט) -->
+        <section class="p-6 bg-white/70 backdrop-blur-sm">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <!-- שורת קלט אליפטית -->
+                <input type="text" id="recipe-input" placeholder="לדוגמה: מתכון לקציצות דגים ברוטב עגבניות" 
+                       class="flex-grow p-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 text-right shadow-md">
+                
+                <!-- כפתור חיפוש - כחול -->
+                <button id="generate-btn" 
+                        class="bg-blue-600 hover:bg-blue-800 text-white font-bold py-3 px-6 shadow-xl flex-shrink-0 flex items-center justify-center">
+                    <span id="btn-text">חפש מתכון</span>
+                    <div id="loader" class="hidden loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6 ml-2"></div>
+                </button>
+            </div>
+        </section>
+
+        <!-- אזור כפתורי פעולה - ראשי - כפתור עוגיות הוסר -->
+        <section class="p-6 pt-0 bg-white/70 backdrop-blur-sm border-t border-gray-100 hidden" id="recipe-actions">
+            <div class="flex flex-wrap justify-center gap-3" id="main-actions">
+                <button id="copy-btn" disabled class="action-btn bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 shadow-md">
+                    העתק מתכון
+                </button>
+                <button id="shorten-btn" disabled class="action-btn bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 shadow-md">
+                    קצר מתכון
+                </button>
+                <!-- כפתור החלף רכיבים המקורי - סגול -->
+                <button id="substitute-toggle-btn" disabled class="action-btn bg-purple-600 hover:bg-purple-800 text-white font-bold py-2 px-4 shadow-xl">
+                    החלף רכיבים 🔄
+                </button>
+            </div>
+
+            <!-- קונטיינר החלפת רכיבים ומתכונים - נסתר בהתחלה -->
+            <div id="substitute-input-container" class="flex flex-col sm:flex-row gap-3 mt-4 hidden slide-in">
+                <!-- שורת קלט אליפטית -->
+                <input type="text" id="substitution-input" placeholder="אילו רכיבים תרצה להחליף? (לדוגמה: ללא גלוטן, טבעוני)" 
+                       class="flex-grow p-3 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-right shadow-md">
+                
+                <!-- כפתור החלף רכיבים (סאבמיט) - סגול -->
+                <button id="submit-substitution-btn" 
+                        class="bg-purple-600 hover:bg-purple-800 text-white font-bold py-3 px-6 shadow-xl flex-shrink-0">
+                    החלף רכיבים
+                </button>
+                
+                <!-- כפתור מתכון אחר - ורוד -->
+                <button id="swap-recipe-btn" 
+                        class="bg-pink-500 hover:bg-pink-700 text-white font-bold py-3 px-6 shadow-xl flex-shrink-0">
+                    מתכון אחר לאותה מנה
+                </button>
+            </div>
+        </section>
+        
+        <!-- אזור פלט המתכון -->
+        <section class="p-6 bg-white/90 min-h-[300px] rounded-b-3xl">
+            <div id="recipe-output" class="recipe-output text-gray-700 leading-relaxed">
+                <p class="text-center text-gray-500 mt-20">👋 אני השף הוירטואלי שלכם! הזינו בקשה או בחרו כפתור כדי לקבל מתכון מפורט.</p>
+            </div>
+        </section>
+
+    </div>
+    
+    <!-- באנר התרעת עוגיות קבוע - סדר האלמנטים שונה -->
+    <div id="cookie-banner" class="fixed bottom-0 right-0 left-0 bg-gray-900 text-white p-4 text-center z-2500 flex flex-wrap justify-center items-center gap-3 hidden">
+        <p class="text-sm">
+            על ידי המשך הגלישה באתר, אתה מביע את הסכמתך לשימוש בעוגיות. 
+            <a href="#" id="read-more-link" class="text-cyan-400 font-bold hover:text-cyan-600 underline transition duration-300">קרא עוד</a>.
+        </p>
+        <!-- הלחצן עבר לצד שמאל -->
+        <button id="close-cookie-banner" class="bg-blue-600 hover:bg-blue-800 text-white font-bold py-1 px-4 rounded-full transition duration-300 shadow-lg text-sm">
+            אני מסכים/ה
+        </button>
+    </div>
+    
+    <!-- כותרת תחתונה (Footer) - דרישת תאימות -->
+    <footer class="mt-8 mb-4 text-center text-xs text-gray-500 max-w-6xl mx-auto">
+        <p>&copy; 2024 השף הוירטואלי. כל הזכויות שמורות. </p>
+        <div class="mt-1 space-x-4 space-x-reverse">
+            <!-- קישורים למודלים -->
+            <a href="#" class="hover:text-pink-500" data-link="terms-of-use">תנאי שימוש</a>
+            <a href="#" class="hover:text-pink-500" data-link="privacy-policy">מדיניות פרטיות</a>
+            <a href="#" class="hover:text-pink-500" data-link="accessibility-statement">הצהרת נגישות</a>
+            <a href="#" class="hover:text-red-500 font-bold" data-link="disclaimer">הגבלת אחריות רפואית</a>
+            <a href="#" class="hover:text-indigo-500 font-bold" data-link="ai-assurance">הצהרת AI</a>
+        </div>
+        <p class="mt-1">האתר פותח בהתאם להוראות נגישות המרחב הדיגיטלי (ת"י 5568 ברמת AA).</p>
+    </footer>
+
+    <script>
+        // הגדרות גלובליות ו-API
+        // הערה חשובה: המפתח הבא הוא placeholder בלבד. אל תכלילו מפתח רגיש בקוד שהולך לריפוזיטורי ציבורי.
+        // בשימוש אמיתי יש להזריק את המפתח מהשרת או מקובץ סודי שלא יידחס ל-Git.
+        const apiKey = 'REPLACE_WITH_YOUR_API_KEY'; // החלף בערך מקומי או השתמש בהזרקה מאובטחת
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        // --- מצב (State) גלובלי ---
+        let lastSuccessfulPrompt = '';
+        let isHighContrast = false; // מצב נגישות
+        let isLinkHighlight = false; // הדגשת קישורים
+        let fontSizeScale = 1.0; // גודל גופן בסיסי
+        // שינוי קטן: הסכמת עוגיות יכולה להתחיל כ-false
+        let consentGiven = false; 
+        // שינוי קטן: הסכמת אזהרת אחריות צריכה להתחיל כ-false
+        let disclaimerAccepted = false; 
+
+        // קבועי מיקום נגישות
+        const ACCESSIBILITY_BOTTOM_DEFAULT = '1rem'; // bottom-4
+        const ACCESSIBILITY_BOTTOM_ABOVE_COOKIE = '6rem'; // מעל הבאנר של 5rem
+
+        // מאגר מתכונים לבחירה אקראית
+        const RECIPE_POOL = [
+            { text: "מתכון לפנקייק 🥞", recipe: "מתכון לפנקייק אוורירי" },
+            { text: "עוגת שוקולד 🎂", recipe: "מתכון לעוגת שוקולד עשירה" },
+            { text: "חומוס ביתי 🥙", recipe: "מתכון לחומוס ביתי" },
+            { text: "מרק ירקות 🍲", recipe: "מתכון פשוט למרק ירקות" },
+            { text: "לזניה בשרית קלאסית 🍝", recipe: "מתכון ללזניה בשרית קלאסית" },
+            { text: "סלט קינואה מרענן 🥗", recipe: "מתכון לסלט קינואה עם ירקות שורש" },
+            { text: "עוגיות שוקולד צ'יפס 🍪", recipe: "מתכון קלאסי לעוגיות שוקולד צ'יפס" },
+            { text: "פסטה אלי-אוליו 🍝", recipe: "מתכון לפסטה אלי-אוליו קלילה" },
+        ];
+        
+        // מאגר שאלות ל-Placeholder
+        const PLACEHOLDER_POOL = [
+            "יש לי 3 מרכיבים (עגבניות, בצל, שום), תמצא מתכון מתאים...",
+            "מתכון טבעוני מהיר וקל?",
+            "מה אפשר לבשל עם עוף וקינואה?",
+            "מתכון קינוח פרווה ללא גלוטן...",
+            "מתכון גורמה שמכינים בפחות מ-20 דקות?",
+            "רעיון לארוחת בוקר בריאה עם ביצים?",
+            "אפייה: מתכון ללחם מחמצת קל למתחילים...",
+        ];
+
+
+        // אלמנטים ב-DOM
+        const recipeInput = document.getElementById('recipe-input');
+        const generateBtn = document.getElementById('generate-btn');
+        const btnText = document.getElementById('btn-text');
+        const loader = document.getElementById('loader');
+        const recipeOutput = document.getElementById('recipe-output');
+        const quickButtonsContainer = document.getElementById('quick-buttons'); // שימוש ב-Container
+        const recipeActions = document.getElementById('recipe-actions');
+        const copyBtn = document.getElementById('copy-btn');
+        const shortenBtn = document.getElementById('shorten-btn');
+        const substituteToggleBtn = document.getElementById('substitute-toggle-btn'); 
+        const messageBox = document.getElementById('message-box');
+        
+        // אלמנטים להחלפת רכיבים
+        const substituteInputContainer = document.getElementById('substitute-input-container');
+        const substitutionInput = document.getElementById('substitution-input');
+        const submitSubstitutionBtn = document.getElementById('submit-substitution-btn');
+        const swapRecipeBtn = document.getElementById('swap-recipe-btn');
+        
+        // אלמנטים לנגישות ועוגיות
+        const floatingAccessibilityBtn = document.getElementById('floating-accessibility-btn'); // לחצן צף
+        const accessibilitySettingsModal = document.getElementById('accessibility-settings-modal');
+        const closeAccessibilityBtn = document.getElementById('close-accessibility-settings-btn');
+        const toggleContrastBtn = document.getElementById('toggle-contrast-btn');
+        const toggleLinkHighlightBtn = document.getElementById('toggle-link-highlight-btn'); 
+        const increaseTextBtn = document.getElementById('increase-text-btn');
+        const decreaseTextBtn = document.getElementById('decrease-text-btn');
+        const currentFontSizeSpan = document.getElementById('current-font-size');
+        const resetAccessibilityBtn = document.getElementById('reset-accessibility-btn'); 
+
+        // אלמנטים לבאנר העוגיות
+        const cookieBanner = document.getElementById('cookie-banner');
+        const closeCookieBannerBtn = document.getElementById('close-cookie-banner');
+        const readMoreLink = document.getElementById('read-more-link');
+        const aboutCookiesModal = document.getElementById('about-cookies-modal');
+        const closeAboutCookiesBtn = document.getElementById('close-about-cookies-btn');
+        
+        // אלמנטים משפטיים
+        const mainDisclaimerModal = document.getElementById('disclaimer-modal');
+        const closeDisclaimerBtn = document.getElementById('close-disclaimer-btn'); // כפתור "אני מאשר/ת את כל התנאים"
+        
+        const aiAssuranceModal = document.getElementById('ai-assurance-modal');
+        const termsOfUseModal = document.getElementById('terms-of-use-modal');
+        const privacyPolicyModal = document.getElementById('privacy-policy-modal');
+        const medicalDisclaimerModal = document.getElementById('medical-disclaimer-modal');
+        
+        const disclaimerLinkBtns = document.querySelectorAll('.disclaimer-link-btn');
+        const footerLinks = document.querySelectorAll('footer a');
+        const closeModalBtns = document.querySelectorAll('.close-modal-btn');
+
+
+        // פונקציית עזר להצגת הודעות במקום alert
+        function showMessage(text, isError = false) {
+            messageBox.textContent = text;
+            messageBox.className = 'message-box show';
+            if (isError) {
+                messageBox.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+                messageBox.classList.remove('bg-green-100', 'border-green-400', 'text-green-700');
+            } else {
+                messageBox.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+                messageBox.classList.remove('bg-red-100', 'border-red-400', 'text-red-700');
+            }
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000);
+        }
+
+        // פונקציית עזר להמרת Markdown ל-HTML בסיסי
+        function markdownToHtml(markdown) {
+            let html = markdown;
+
+            // החלפת כותרות
+            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+            html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+            html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+            // החלפת רשימות לא מסודרות (מרכיבים)
+            html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
+            // עוטף את כל ה-li ברשימה לא מסודרת
+            html = html.replace(/(?:<li>.*<\/li>\n?)+/g, (match) => {
+                const isOrdered = match.match(/^\s*\d+\.\s/m);
+                if (!isOrdered) {
+                    if (match.includes('<ul')) return match; 
+                    return '<ul class="list-disc pr-5 mt-2' + '">' + match.replace(/<\/??li>/g, '').split('\n').filter(line => line.trim()).map(line => `<li>${line.trim().replace(/^\*\s*/, '')}</li>`).join('') + '</ul>';
+                }
+                return match;
+            });
+            
+            // החלפת רשימות מסודרות (הוראות)
+            html = html.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
+            html = html.replace(/(?:<li>.*<\/li>\n?)+/g, (match) => {
+                const isOrdered = match.match(/^\s*\d+\.\s/m);
+                if (isOrdered) {
+                    return '<ol class="list-decimal pr-5 mt-2">' + match.replace(/<\/??li>/g, '').split('\n').filter(line => line.trim()).map(line => `<li>${line.trim().replace(/^\d+\.\s*/, '')}</li>`).join('') + '</ol>';
+                }
+                return match;
+            });
+            
+            // הסרת פסקאות ריקות וסדרת שורות
+            html = html.replace(/\n\n/g, '<br><br>');
+            html = html.replace(/\n/g, '<br>');
+            
+            return html;
+        }
+
+        // פונקציית קריאה ל-Gemini API
+        async function callGeminiApi(prompt, specificSystemPrompt = null) {
+            
+            // אם זו הפעם הראשונה שמנסים לחפש מתכון, הצג את מודל האישור המקיף
+            if (!disclaimerAccepted) {
+                mainDisclaimerModal.style.display = 'flex'; // הצגת המודל
+                // נשמור את הפרומפט כדי שנוכל לחזור אליו לאחר האישור
+                recipeInput.value = prompt; 
+                return; // יציאה מהפונקציה עד לאישור
+            }
+
+            // איפוס שדה הקלט לאחר שהמתכון נשלח
+            recipeInput.value = '';
+
+            // הצגת מצב טעינה וכיבוי כפתורים
+            btnText.textContent = '';
+            loader.classList.remove('hidden');
+            generateBtn.disabled = true;
+            copyBtn.disabled = true;
+            shortenBtn.disabled = true;
+            substituteToggleBtn.disabled = true;
+            floatingAccessibilityBtn.disabled = true; // כיבוי הכפתור הצף
+            recipeActions.classList.add('hidden'); // הסתרת כפתורי הפעולה בזמן טעינה
+            substituteInputContainer.classList.add('hidden'); // הסתרת שורת ההחלפה
+
+            // מחוון טעינה (חצי עיגול מסתובב)
+            recipeOutput.innerHTML = `
+                <div class="text-center p-8">
+                    <!-- ספינר חצי עיגול -->
+                    <div class="loader ease-linear rounded-full border-4 border-gray-300 border-t-4 border-pink-500 h-12 w-12 mx-auto"></div>
+                    <p class="mt-4 text-pink-500 font-medium">השף הוירטואלי מכין את המתכון...</p>
+                </div>
+            `;
+
+
+            // הדרכה חדשה: אם הבקשה אינה מתכון, ספק תשובה ספציפית
+            const defaultSystemPrompt = `אתה שף וירטואלי מומחה. תפקידך הוא לייצר מתכון מלא ומפורט (כולל רכיבים, הוראות הכנה מדויקות, וזמן הכנה/בישול) על בסיס בקשת המשתמש.
+אם הבקשה אינה קשורה למתכון, אוכל או הכנה של מנה (לדוגמה: "מה מזג האוויר?" או "שם של חברה"), עליך לענות בדיוק: "לא נמצא מתכון מתאים לבקשה זו. אנא הזן שם של מאכל, מנה או סוג מתכון."
+אם המתכון נמצא, עליו להיות מנוסח בשפה קלה וברורה ומוצג כ-Markdown בפורמט הבא:
+# [שם המתכון]
+## זמן הכנה: [X דקות] / זמן בישול: [Y דקות]
+### רכיבים
+* [כמות] [רכיב]
+* ...
+### הוראות הכנה
+1.  [שלב 1]
+2.  [שלב 2]
+...
+הימנע מתוכן מקדים או סופי שאינו חלק מהמתכון עצמו. השב בעברית ובצורה מפורטת.`;
+
+            const systemPrompt = specificSystemPrompt || defaultSystemPrompt;
+            const userQuery = specificSystemPrompt ? prompt : `בבקשה ספק מתכון עבור: ${prompt}`;
+            
+            // שימוש בכלי החיפוש רק עבור יצירת מתכון חדש או החלפת רכיבים (שדורש חיפוש חלופות)
+            const useSearch = !specificSystemPrompt || specificSystemPrompt.includes("החלף את הרכיבים") || specificSystemPrompt.includes("גרסה חדשה ושונה");
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: useSearch ? [{ "google_search": {} }] : [],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            let response;
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (attempts < maxAttempts) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (response.ok) {
+                        break;
+                    } else if (response.status === 429) {
+                        const delay = Math.pow(2, attempts) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        attempts++;
+                    } else {
+                        throw new Error(`שגיאת HTTP: ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error("שגיאה ברשת או ב-API:", error);
+                    const delay = Math.pow(2, attempts) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    attempts++;
+                }
+            }
+
+            // הסתרת מצב טעינה
+            btnText.textContent = 'חפש מתכון';
+            loader.classList.add('hidden');
+            generateBtn.disabled = false;
+            floatingAccessibilityBtn.disabled = false; // הפעלת הכפתור הצף
+            
+            if (!response || !response.ok) {
+                recipeOutput.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert"><strong class="font-bold">שגיאה!</strong><span class="block sm:inline"> לא ניתן היה ליצור קשר עם השף הוירטואלי. אנא נסו שוב מאוחר יותר.</span></div>`;
+                return;
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                const text = candidate.content.parts[0].text.trim();
+                
+                // בדיקה אם הבוט ענה בתשובה המסוימת לאי-מתכון
+                if (text === "לא נמצא מתכון מתאים לבקשה זו. אנא הזן שם של מאכל, מנה או סוג מתכון.") {
+                    recipeOutput.innerHTML = `<p class="text-center text-red-500 font-medium p-4">⚠️ ${text}</p>`;
+                    recipeActions.classList.add('hidden');
+                    // לא נשמור פרומפט לא מוצלח
+                    return; 
+                }
+                
+                let sources = [];
+                const groundingMetadata = candidate.groundingMetadata;
+
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title);
+                }
+
+                renderRecipe(text, sources);
+                
+                // עדכון הפרומפט המוצלח האחרון רק אם זה יצירת מתכון חדש
+                if (!specificSystemPrompt || specificSystemPrompt === defaultSystemPrompt) {
+                     lastSuccessfulPrompt = prompt;
+                }
+                
+                // הפעלת כפתורי הפעולה
+                copyBtn.disabled = false;
+                shortenBtn.disabled = false;
+                substituteToggleBtn.disabled = false;
+                recipeActions.classList.remove('hidden');
+
+
+            } else {
+                recipeOutput.innerHTML = `<p class="text-center text-red-500 font-medium p-4">מצטער, לא הצלחתי למצוא מתכון מתאים. אנא נסה שאילתה אחרת.</p>`;
+                recipeActions.classList.add('hidden'); // הסתרת כפתורי הפעולה
+            }
+        }
+
+        // פונקציית עיבוד ורינדור המתכון
+        function renderRecipe(text, sources) {
+            // שמירת הטקסט המקורי (Markdown) להעתקה
+            recipeOutput.dataset.markdown = text;
+
+            const htmlContent = markdownToHtml(text);
+            
+            let sourcesHtml = '';
+            if (sources.length > 0) {
+                sourcesHtml = `<div class="mt-6 pt-4 border-t border-gray-200 text-sm text-gray-500">
+                    <p class="font-semibold">מקורות:</p>
+                    <ul class="list-disc pr-5 mt-2 space-y-1">
+                        <p class="text-xs">המתכון נוצר על ידי AI ומוקרקע על ידי מקורות חיפוש:</p>
+                        ${sources.slice(0, 3).map(s => `<li><a href="${s.uri}" target="_blank" class="text-pink-500 hover:text-pink-700">${s.title}</a></li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
+            recipeOutput.innerHTML = htmlContent + sourcesHtml;
+        }
+
+
+        // --- מטפלים בפעולות שונות ---
+
+        // 1. העתקת מתכון
+        function handleCopy() {
+            const recipeText = recipeOutput.dataset.markdown;
+            if (recipeText) {
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = recipeText;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                try {
+                    // שימוש ב-execCommand לעבודה בסביבת iFrame
+                    document.execCommand('copy'); 
+                    showMessage("המתכון הועתק בהצלחה!");
+                } catch (err) {
+                    showMessage("שגיאת העתקה. אנא נסה להעתיק ידנית.", true);
+                    console.error('Copy failed:', err);
+                } finally {
+                    document.body.removeChild(tempTextArea);
+                }
+            }
+        }
+
+        // 2. קיצור מתכון
+        function handleShorten() {
+            if (!lastSuccessfulPrompt) {
+                 showMessage("אנא צור מתכון קודם לפני הקיצור.", true);
+                 return;
+            }
+            const shortenPrompt = `בבקשה קצר את המתכון הבא, שמור על שלבי ההכנה החשובים אך פשט את השפה והסר פרטים מיותרים: המתכון הוא עבור: ${lastSuccessfulPrompt}`;
+            const shortenSystemPrompt = `אתה שף וירטואלי. תפקידך הוא לקצר את המתכון המבוקש. שמור על פורמט Markdown המקורי: #, ##, ### ורשימות מסודרות ולא מסודרות. השב בעברית.`;
+            callGeminiApi(shortenPrompt, shortenSystemPrompt);
+        }
+        
+        // 3. הצגת שורת החלפת רכיבים (במקום הכפתור המקורי)
+        function toggleSubstituteInput() {
+            if (!lastSuccessfulPrompt) {
+                showMessage("אנא צור מתכון קודם לפני החלפת רכיבים.", true);
+                return;
+            }
+
+            const isHidden = substituteInputContainer.classList.contains('hidden');
+            if (isHidden) {
+                substituteInputContainer.classList.remove('hidden');
+                substituteInputContainer.classList.add('slide-in');
+            } else {
+                substituteInputContainer.classList.add('hidden');
+                substituteInputContainer.classList.remove('slide-in');
+            }
+        }
+
+        // 4. שליחת בקשת החלפת רכיבים (כפתור סגול)
+        function handleSubmitSubstitution() {
+            const exclusionText = substitutionInput.value.trim();
+            if (!exclusionText) {
+                showMessage("אנא הזן אילו רכיבים תרצה להחליף או לשנות.", true);
+                return;
+            }
+            
+            const substitutePrompt = `בבקשה ספק גרסה חדשה למתכון עבור: ${lastSuccessfulPrompt}. המתכון החדש צריך להתאים לבקשה הבאה: ${exclusionText}`;
+            const substituteSystemPrompt = `אתה שף וירטואלי מומחה בהתאמת מתכונים לתזונה מיוחדת (טבעוני, ללא גלוטן, דל שומן וכו'). עליך לספק גרסה חדשה ומלאה של המתכון המקורי עם רכיבים חלופיים התואמים לבקשת המשתמש. המתכון החדש חייב לשמור על פורמט Markdown המקורי: #, ##, ### ורשימות מסודרות ולא מסודרות. ציין בכותרת את השינוי שבוצע (לדוגמה: מתכון פנקייק ללא גלוטן). השב בעברית.`;
+            
+            // נסתר את שורת ההחלפה לאחר שליחה
+            substituteInputContainer.classList.add('hidden');
+            callGeminiApi(substitutePrompt, substituteSystemPrompt);
+        }
+
+        // 5. מציאת מתכון אחר לאותה מנה (כפתור ורוד)
+        function handleSwapRecipe() {
+            if (!lastSuccessfulPrompt) {
+                 showMessage("אנא צור מתכון קודם.", true);
+                 return;
+            }
+
+            const swapPrompt = `בבקשה ספק מתכון חדש ושונה לאותו סוג מנה: ${lastSuccessfulPrompt}. נסה לשנות את הסגנון, המטבח או אופי המנה. לדוגמה, אם המתכון הוא לעוגת שוקולד, ספק מתכון לבראוניז שוקולד או מוס שוקולד.`;
+            const swapSystemPrompt = `אתה שף וירטואלי. תפקידך הוא לספק גרסה חדשה ושונה, אך קשורה, של המתכון המקורי. המתכון החדש חייב לשמור על פורמט Markdown המקורי: #, ##, ### ורשימות מסודרות ולא מסודרות. ציין בכותרת את השינוי שבוצע. השב בעברית.`;
+            
+            // נסתר את שורת ההחלפה לאחר שליחה
+            substituteInputContainer.classList.add('hidden');
+            callGeminiApi(swapPrompt, swapSystemPrompt);
+        }
+
+        // --- 6. פונקציות נגישות ---
+        
+        function updateFontSizeText() {
+            let text;
+            if (fontSizeScale === 1.0) text = 'רגיל';
+            else if (fontSizeScale === 1.15) text = 'גדול';
+            else if (fontSizeScale === 1.3) text = 'גדול מאוד';
+            currentFontSizeSpan.textContent = text;
+        }
+
+        function applyAccessibilitySettings() {
+            const body = document.body;
+            
+            // 1. ניגודיות
+            if (isHighContrast) {
+                body.classList.add('accessibility-mode');
+                toggleContrastBtn.textContent = 'בטל ניגודיות גבוהה';
+            } else {
+                body.classList.remove('accessibility-mode');
+                toggleContrastBtn.textContent = 'הפעל ניגודיות גבוהה';
+            }
+
+            // 2. הדגשת קישורים
+            if (isLinkHighlight) {
+                body.classList.add('highlight-links');
+                toggleLinkHighlightBtn.textContent = 'בטל הדגשה';
+            } else {
+                body.classList.remove('highlight-links');
+                toggleLinkHighlightBtn.textContent = 'הפעל הדגשה';
+            }
+            
+            // 3. גודל גופן
+            body.style.fontSize = `${fontSizeScale}rem`;
+            updateFontSizeText();
+        }
+        
+        function handleToggleContrast() {
+            isHighContrast = !isHighContrast;
+            applyAccessibilitySettings();
+            showMessage(isHighContrast ? "הופעלה ניגודיות גבוהה (היפוך צבעים)." : "בוטלה ניגודיות גבוהה.");
+        }
+        
+        function handleToggleLinkHighlight() {
+            isLinkHighlight = !isLinkHighlight;
+            applyAccessibilitySettings();
+            showMessage(isLinkHighlight ? "הופעלה הדגשת קישורים." : "בוטלה הדגשת קישורים.");
+        }
+
+        function handleTextResize(increase) {
+            const oldScale = fontSizeScale;
+            if (increase) {
+                if (fontSizeScale < 1.3) {
+                    fontSizeScale += 0.15;
+                } else {
+                    showMessage("הגעת לגודל הגופן המקסימלי.", true);
+                    return;
+                }
+            } else {
+                if (fontSizeScale > 1.0) {
+                    fontSizeScale -= 0.15;
+                } else {
+                    showMessage("הגעת לגודל הגופן המינימלי (רגיל).", true);
+                    return;
+                }
+            }
+            fontSizeScale = parseFloat(fontSizeScale.toFixed(2));
+            applyAccessibilitySettings();
+            showMessage(`גודל גופן שונה ל- ${currentFontSizeSpan.textContent}.`);
+        }
+        
+        function handleResetAccessibility() {
+            isHighContrast = false;
+            isLinkHighlight = false;
+            fontSizeScale = 1.0;
+            applyAccessibilitySettings();
+            showMessage("הגדרות הנגישות אותחלו.");
+            hideAccessibilityModal();
+        }
+
+        function showAccessibilityModal() {
+            // ודא שהכפתורים במודל משקפים את המצב הנוכחי לפני הפתיחה
+            applyAccessibilitySettings();
+            accessibilitySettingsModal.style.display = 'flex';
+        }
+
+        function hideAccessibilityModal() {
+            accessibilitySettingsModal.style.display = 'none';
+        }
+        
+        // --- 7. פונקציות עוגיות ומשפטיות ---
+        
+        function showModal(modalElement) {
+            // סגירת כל מודל אחר פתוח לפני פתיחת חדש, מלבד המודל המקיף
+            const allModals = [aboutCookiesModal, termsOfUseModal, privacyPolicyModal, medicalDisclaimerModal, aiAssuranceModal];
+            allModals.forEach(modal => {
+                if (modal !== modalElement) {
+                    modal.style.display = 'none';
+                }
+            });
+            modalElement.style.display = 'flex';
+        }
+
+        function hideModal(modalElement) {
+            modalElement.style.display = 'none';
+        }
+        
+        // פונקציות מודלים משפטיים
+        function handleOpenLegalModal(e) {
+            e.preventDefault();
+            const modalType = e.currentTarget.getAttribute('data-modal') || e.currentTarget.getAttribute('data-link');
+
+            switch (modalType) {
+                case 'terms-of-use':
+                    showModal(termsOfUseModal);
+                    break;
+                case 'privacy-policy':
+                    showModal(privacyPolicyModal);
+                    break;
+                case 'disclaimer':
+                    showModal(medicalDisclaimerModal);
+                    break;
+                case 'ai-assurance':
+                    showModal(aiAssuranceModal);
+                    break;
+                case 'accessibility-statement': // הצהרת נגישות פותחת את מודל הנגישות
+                    showAccessibilityModal();
+                    break;
+                default:
+                    console.error("Unknown modal type:", modalType);
+            }
+        }
+        
+        function hideDisclaimerModal(e) {
+            // סגירת מודל האישור המקיף
+            if (e.currentTarget.id === 'close-disclaimer-btn') {
+                disclaimerAccepted = true;
+                mainDisclaimerModal.style.display = 'none';
+                
+                // הפעלת החיפוש שהושהה, אם יש
+                const prompt = recipeInput.value.trim();
+                // נשתמש בערך שנשמר קודם לכן בפונקציית callGeminiApi
+                if (prompt) {
+                    callGeminiApi(prompt);
+                }
+            } else {
+                 mainDisclaimerModal.style.display = 'none';
+            }
+        }
+
+
+        function updateAccessibilityButtonPosition(isOpen) {
+            if (isOpen) {
+                floatingAccessibilityBtn.style.bottom = ACCESSIBILITY_BOTTOM_ABOVE_COOKIE;
+            } else {
+                floatingAccessibilityBtn.style.bottom = ACCESSIBILITY_BOTTOM_DEFAULT;
+            }
+        }
+
+        function handleBannerConsent() {
+            consentGiven = true;
+            showMessage("המשך גלישה מאשר הסכמה לעוגיות.", false);
+            cookieBanner.classList.add('hidden');
+            updateAccessibilityButtonPosition(false); // החזרת כפתור הנגישות למיקום רגיל
+        }
+        
+        function checkCookieConsent() {
+            // אם אין הסכמה, הצג את הבאנר בכניסה לאתר
+            if (!consentGiven) {
+                cookieBanner.classList.remove('hidden');
+                updateAccessibilityButtonPosition(true); // העלאת כפתור הנגישות מעל הבאנר
+            }
+        }
+        
+        // --- 8. פונקציית אתחול כפתורים אקראיים ו-Placeholder ---
+        function initializeQuickButtons() {
+            // פונקציית ערבוב (Shuffle) של מערך
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            // ערבוב וסימון 4 מתכונים
+            shuffleArray(RECIPE_POOL);
+            const selectedRecipes = RECIPE_POOL.slice(0, 4);
+
+            let buttonsHtml = '';
+            selectedRecipes.forEach(item => {
+                buttonsHtml += `<button data-recipe="${item.recipe}" class="recipe-btn bg-pink-500 hover:bg-pink-700 text-white font-bold py-3 px-6 shadow-xl">${item.text}</button>`;
+            });
+
+            quickButtonsContainer.innerHTML = buttonsHtml;
+
+            // חיבור מחדש של ה-Event Listeners לכפתורים החדשים
+            const newQuickButtons = quickButtonsContainer.querySelectorAll('.recipe-btn');
+            newQuickButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const prompt = e.currentTarget.getAttribute('data-recipe');
+                    if (prompt) {
+                        // שמירת הערך בשדה הקלט לפני הקריאה ל-API (שעשויה להיעצר על ידי המודל המשפטי)
+                        recipeInput.value = prompt; 
+                        if (disclaimerAccepted) {
+                            callGeminiApi(prompt);
+                        } else {
+                            mainDisclaimerModal.style.display = 'flex';
+                        }
+                    }
+                });
+            });
+        }
+        
+        // פונקציית החלפת ה-placeholder באופן אוטומטי
+        let currentPlaceholderIndex = 0;
+        function updatePlaceholder() {
+            recipeInput.placeholder = `לדוגמה: ${PLACEHOLDER_POOL[currentPlaceholderIndex]}`;
+            currentPlaceholderIndex = (currentPlaceholderIndex + 1) % PLACEHOLDER_POOL.length;
+        }
+
+
+        // --- הטמעת Event Listeners ---
+        
+        // הפעלת הגדרות נגישות ראשוניות
+        applyAccessibilitySettings();
+        
+        // אתחול כפתורי המתכונים האקראיים
+        initializeQuickButtons();
+        
+        // הפעלת החלפת ה-placeholder וטיימר
+        updatePlaceholder();
+        setInterval(updatePlaceholder, 4000); 
+
+
+        // מטפל בלחיצה על כפתור "חפש מתכון" 
+        generateBtn.addEventListener('click', () => {
+            const prompt = recipeInput.value.trim();
+            if (prompt) {
+                if (disclaimerAccepted) {
+                    callGeminiApi(prompt);
+                } else {
+                    // אם לא אושר, פתח את המודל וצא. החיפוש יתבצע לאחר האישור.
+                    recipeInput.value = prompt; // שמירת הפרומפט
+                    mainDisclaimerModal.style.display = 'flex'; 
+                }
+            } else {
+                showMessage("אנא הקלד את שם המתכון שאתה מחפש או בחר מתפריט הכפתורים.", true);
+            }
+        });
+
+
+        // מאפשר שליחה באמצעות Enter בשדה הקלט הראשי
+        recipeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                generateBtn.click();
+            }
+        });
+
+        // מטפלי פעולות
+        copyBtn.addEventListener('click', handleCopy);
+        shortenBtn.addEventListener('click', handleShorten);
+        
+        // מטפלי נגישות צפים
+        floatingAccessibilityBtn.addEventListener('click', showAccessibilityModal);
+        toggleContrastBtn.addEventListener('click', handleToggleContrast);
+        toggleLinkHighlightBtn.addEventListener('click', handleToggleLinkHighlight); 
+        increaseTextBtn.addEventListener('click', () => handleTextResize(true));
+        decreaseTextBtn.addEventListener('click', () => handleTextResize(false));
+        resetAccessibilityBtn.addEventListener('click', handleResetAccessibility); 
+        closeAccessibilityBtn.addEventListener('click', hideAccessibilityModal);
+        accessibilitySettingsModal.addEventListener('click', (e) => { // סגירת מודל בלחיצה מחוץ לתוכן
+            if (e.target === accessibilitySettingsModal) {
+                hideAccessibilityModal();
+            }
+        });
+        
+        // מטפלי באנר עוגיות
+        closeCookieBannerBtn.addEventListener('click', handleBannerConsent); // לחיצה על "אני מסכים/ה"
+        readMoreLink.addEventListener('click', (e) => { // לחיצה על "קרא עוד"
+            e.preventDefault();
+            showModal(aboutCookiesModal);
+        });
+        
+        // מטפלי מודל "קרא עוד"
+        closeAboutCookiesBtn.addEventListener('click', () => hideModal(aboutCookiesModal));
+        aboutCookiesModal.addEventListener('click', (e) => { // סגירת מודל בלחיצה מחוץ לתוכן
+            if (e.target === aboutCookiesModal) {
+                hideModal(aboutCookiesModal);
+            }
+        });
+
+        // כפתור החלף רכיבים (הטוגל)
+        substituteToggleBtn.addEventListener('click', toggleSubstituteInput);
+        
+        // כפתור החלף רכיבים (שליחה)
+        submitSubstitutionBtn.addEventListener('click', handleSubmitSubstitution);
+
+        // כפתור מתכון אחר לאותה מנה
+        swapRecipeBtn.addEventListener('click', handleSwapRecipe);
+
+        // שליחה משורת הקלט של החלפת רכיבים באמצעות Enter
+        substitutionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmitSubstitution();
+            }
+        });
+        
+        // --- מטפלי האישור המקיף (disclaimer-modal) ---
+        closeDisclaimerBtn.addEventListener('click', hideDisclaimerModal); // אישור סופי
+        mainDisclaimerModal.addEventListener('click', (e) => { // סגירת מודל בלחיצה מחוץ לתוכן
+            if (e.target === mainDisclaimerModal) {
+                // לא מאפשרים לסגור בלי אישור
+            }
+        });
+        
+        // מטפלי כפתורי המודלים בתוך המודל המקיף וקישורי הפוטר
+        const allLegalLinks = [...disclaimerLinkBtns, ...footerLinks];
+        allLegalLinks.forEach(link => {
+            link.addEventListener('click', handleOpenLegalModal);
+        });
+        
+        // מטפלי כפתורי הסגירה של המודלים המפורטים
+        closeModalBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const modalId = e.currentTarget.closest('.modal-overlay').id;
+                hideModal(document.getElementById(modalId));
+            });
+        });
+
+        // הפעלת בדיקת העוגיות לאחר טעינת הדף
+        window.onload = checkCookieConsent;
+    </script>
+</body>
+</html>
