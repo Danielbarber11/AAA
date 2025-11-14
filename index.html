@@ -464,9 +464,19 @@
 
     <script>
         // הגדרות גלובליות ו-API
-        // הערה חשובה: המפתח הבא הוא placeholder בלבד. אל תכלילו מפתח רגיש בקוד שהולך לריפוזיטורי ציבורי.
-        // בשימוש אמיתי יש להזריק את המפתח מהשרת או מקובץ סודי שלא יידחס ל-Git.
-        const apiKey = 'REPLACE_WITH_YOUR_API_KEY'; // החלף בערך מקומי או השתמש בהזרקה מאובטחת
+        // קריאת המפתח מ-localStorage (הזן ידנית בדפדפן או קבע בתצורה)
+        // שימור בטוח: המפתח נשמר בלוקל סטורג' בלבד ולא משודר לשרת
+        let apiKey = localStorage.getItem('gemini_api_key') || '';
+        
+        // אם אין מפתח, הצג הודעת שגיאה
+        if (!apiKey) {
+            apiKey = 'ERROR_NO_KEY';
+            window.addEventListener('DOMContentLoaded', () => {
+                console.error('❌ לא נמצא מפתח Gemini API. הזן את המפתח בקונסול:');
+                console.log('localStorage.setItem("gemini_api_key", "YOUR_API_KEY_HERE")');
+            });
+        }
+        
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
         
         // --- מצב (State) גלובלי ---
@@ -710,7 +720,11 @@
             floatingAccessibilityBtn.disabled = false; // הפעלת הכפתור הצף
             
             if (!response || !response.ok) {
-                recipeOutput.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert"><strong class="font-bold">שגיאה!</strong><span class="block sm:inline"> לא ניתן היה ליצור קשר עם השף הוירטואלי. אנא נסו שוב מאוחר יותר.</span></div>`;
+                let errorMsg = 'לא ניתן היה ליצור קשר עם השף הוירטואלי. אנא נסו שוב מאוחר יותר.';
+                if (apiKey === 'ERROR_NO_KEY') {
+                    errorMsg = '❌ <strong>מפתח API חסר!</strong><br>הזן את המפתח בקונסול: <code>localStorage.setItem("gemini_api_key", "YOUR_KEY")</code><br><a href="https://aistudio.google.com/app/apikeys" target="_blank" style="color: blue; text-decoration: underline;">קבל מפתח חדש</a>';
+                }
+                recipeOutput.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert"><strong class="font-bold">שגיאה!</strong><span class="block sm:inline"> ${errorMsg}</span></div>`;
                 return;
             }
 
